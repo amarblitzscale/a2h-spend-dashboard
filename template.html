@@ -129,7 +129,7 @@ const latest=P(dates[0]);
 const pct=(x,d=1)=>x==null||!isFinite(x)?'–':x.toFixed(d)+'%';
 const inr=x=>x==null?'–':x>=1e7?(x/1e7).toFixed(2)+' Cr':x>=1e5?(x/1e5).toFixed(2)+' L':Math.round(x).toLocaleString('en-IN');
 const rup=x=>x==null||!isFinite(x)?'–':'₹'+x.toFixed(0);
-const st={w:[true,true,true,true],gran:'day',weeks:new Set(),partial:false,excl:false,cap:true,metric:'video'};
+const st={w:[true,true,true,true],gran:'week',weeks:new Set(),partial:false,excl:false,cap:true,metric:'video'};
 const CAP=150;
 
 const S=['spend','impr','clicks','purch','gmv','vsp','adsp','a','agesp','nl','adset','ig','plat'];
