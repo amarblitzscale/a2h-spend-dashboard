@@ -3,6 +3,7 @@
 -- (cohorts too young to have a finished W0). The dashboard pools these raw sums itself, so do not pre-aggregate.
 --   win      D0_6 = W0, D7_13 = W1, D14_20 = W2, D21_27 = W3 (days since the seller's first Meta spend day)
 --   outlier  1 = seller whose W0 spend / platform GMV is under 5%
+--   csa      1 = seller whose primary L1 category is clothing-shoes-and-accessories, 0 = everything else (incl. untagged)
 -- A seller enters a week only once that week has fully elapsed.
 -- No Metabase variables: save as a plain SQL question, then make its public link.
 WITH params AS (SELECT DATE '2026-08-01' AS start_date),   -- first A2H date shown on the dashboard
@@ -83,8 +84,12 @@ outl AS (  -- outlier seller: W0 S/GMV under 5%
   FROM brk b JOIN gmv g ON g.seller_id = b.seller_id AND g.win = b.win
   WHERE b.win = 'D0_6' AND g.gmv > 0 AND b.spend / g.gmv * 100 < 5
 ),
+cat AS (   -- seller category (one row per seller)
+  SELECT seller_id, IF(primary_category_l1 = 'clothing-shoes-and-accessories', 1, 0) AS csa
+  FROM `blitzscale-prod-project.analytics.seller_level_category_mapping_l2`
+),
 agg AS (   -- raw sums per A2H date x outlier x week
-  SELECT a.a2h_date, IFNULL(o.outlier, 0) AS outlier, w.win,
+  SELECT a.a2h_date, IFNULL(o.outlier, 0) AS outlier, IFNULL(c.csa, 0) AS csa, w.win,
     COUNT(DISTINCT w.seller_id) AS sellers,
     SUM(b.spend) AS spend, SUM(b.impressions) AS impressions, SUM(b.clicks) AS clicks, SUM(b.purchases) AS purchases,
     SUM(g.gmv) AS gmv,
@@ -95,17 +100,18 @@ agg AS (   -- raw sums per A2H date x outlier x week
   FROM wins w
   JOIN a2h a USING (seller_id)
   LEFT JOIN outl o ON o.seller_id = w.seller_id
+  LEFT JOIN cat c ON c.seller_id = w.seller_id
   LEFT JOIN brk b ON b.seller_id = w.seller_id AND b.win = w.win
   LEFT JOIN vid v ON v.seller_id = w.seller_id AND v.win = w.win
   LEFT JOIN gmv g ON g.seller_id = w.seller_id AND g.win = w.win
-  GROUP BY 1, 2, 3
+  GROUP BY 1, 2, 3, 4
 ),
 base AS (
-  SELECT a.a2h_date, IFNULL(o.outlier, 0) AS outlier, COUNT(*) AS a2h_done, COUNT(l.seller_id) AS live_from_a2h
-  FROM a2h a LEFT JOIN live l USING (seller_id) LEFT JOIN outl o USING (seller_id)
-  GROUP BY 1, 2
+  SELECT a.a2h_date, IFNULL(o.outlier, 0) AS outlier, IFNULL(c.csa, 0) AS csa, COUNT(*) AS a2h_done, COUNT(l.seller_id) AS live_from_a2h
+  FROM a2h a LEFT JOIN live l USING (seller_id) LEFT JOIN outl o USING (seller_id) LEFT JOIN cat c USING (seller_id)
+  GROUP BY 1, 2, 3
 )
-SELECT b.a2h_date, b.outlier, b.a2h_done, b.live_from_a2h, g.win, g.sellers, g.spend, g.impressions, g.clicks, g.purchases, g.gmv,
+SELECT b.a2h_date, b.outlier, b.csa, b.a2h_done, b.live_from_a2h, g.win, g.sellers, g.spend, g.impressions, g.clicks, g.purchases, g.gmv,
        g.video_spend, g.ad_spend, g.age_18_44, g.age_spend, g.non_lal_spend, g.adset_spend, g.ig_spend, g.plat_spend
-FROM base b LEFT JOIN agg g ON g.a2h_date = b.a2h_date AND g.outlier = b.outlier
-ORDER BY 1 DESC, 2, 5
+FROM base b LEFT JOIN agg g ON g.a2h_date = b.a2h_date AND g.outlier = b.outlier AND g.csa = b.csa
+ORDER BY 1 DESC, 2, 3, 6

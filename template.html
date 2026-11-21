@@ -74,6 +74,7 @@ td.na{color:var(--line)}
 </header>
 
 <div class="bar" role="group" aria-label="Filters">
+  <label>Sellers <span class="seg" id="catSeg" role="group"></span></label>
   <label>Group A2H cohorts by <span class="seg" id="gran" role="group"></span></label>
   <label class="chk"><input type="checkbox" id="partial"> Include partial weeks</label>
   <label class="chk"><input type="checkbox" id="excl"> Exclude outlier sellers (W0 S/GMV under 5%)</label>
@@ -118,7 +119,7 @@ const $=id=>document.getElementById(id);
 const WL=['W0','W1','W2','W3'];
 const WC=['var(--w0)','var(--w1)','var(--w2)','var(--w3)'];
 const dates=[...new Set(RAW.map(r=>r[0]))].sort().reverse();
-const base={};RAW.forEach(r=>{base[r[0]+"|"+r[18]]={done:r[1],live:r[2]}});
+const base={};RAW.forEach(r=>{base[r[0]+"|"+r[18]+"|"+r[19]]={done:r[1],live:r[2]}});
 const MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const P=s=>new Date(s+'T00:00:00Z');
 const dl=s=>{const t=P(s);return `${t.getUTCDate()} ${MN[t.getUTCMonth()]}`};
@@ -129,7 +130,7 @@ const latest=P(dates[0]);
 const pct=(x,d=1)=>x==null||!isFinite(x)?'–':x.toFixed(d)+'%';
 const inr=x=>x==null?'–':x>=1e7?(x/1e7).toFixed(2)+' Cr':x>=1e5?(x/1e5).toFixed(2)+' L':Math.round(x).toLocaleString('en-IN');
 const rup=x=>x==null||!isFinite(x)?'–':'₹'+x.toFixed(0);
-const st={w:[true,true,true,true],gran:'week',weeks:new Set(),partial:false,excl:false,cap:true,metric:'video'};
+const st={cat:'all',w:[true,true,true,true],gran:'week',weeks:new Set(),partial:false,excl:false,cap:true,metric:'video'};
 const CAP=150;
 
 const S=['spend','impr','clicks','purch','gmv','vsp','adsp','a','agesp','nl','adset','ig','plat'];
@@ -150,15 +151,16 @@ const ok=q=>q.sel;
 const wkName=k=>{const th=P(k);th.setUTCDate(th.getUTCDate()+3);return th.getUTCFullYear()+'W'+String(isoWeek(k)).padStart(2,'0')};
 const wkPartial=k=>{const e=P(k);e.setUTCDate(e.getUTCDate()+6);return e>latest};
 const outs=()=>st.excl?[0]:[0,1];
+const cats=()=>st.cat==='all'?[0,1]:st.cat==='csa'?[1]:[0];
 function groups(){
   const inc=d=>st.weeks.has(monday(d))&&(st.partial||!wkPartial(monday(d)));
   const ds=dates.filter(inc).sort();
   const keyOf=d=>st.gran==='day'?d:monday(d);
   const order=[],G={};
   ds.forEach(d=>{const k=keyOf(d);if(!G[k]){G[k]={k,days:[],done:0,live:0,w:[0,1,2,3].map(()=>{const o={sel:0,pend:0};S.forEach(f=>o[f]=0);return o})};order.push(k)}
-    const g=G[k];g.days.push(d);outs().forEach(o=>{const b=base[d+'|'+o];if(b){g.done+=b.done;g.live+=b.live}})});
-  RAW.forEach(r=>{if(r[3]<0||(st.excl&&r[18])||!inc(r[0]))return;const w=G[keyOf(r[0])].w[r[3]];
-    w.sel+=r[4];w.pend+=base[r[0]+'|'+r[18]].live-r[4];S.forEach((f,i)=>w[f]+=+r[5+i]||0)});
+    const g=G[k];g.days.push(d);outs().forEach(o=>cats().forEach(c=>{const b=base[d+'|'+o+'|'+c];if(b){g.done+=b.done;g.live+=b.live}}))});
+  RAW.forEach(r=>{if(r[3]<0||(st.excl&&r[18])||!cats().includes(r[19])||!inc(r[0]))return;const w=G[keyOf(r[0])].w[r[3]];
+    w.sel+=r[4];w.pend+=base[r[0]+'|'+r[18]+'|'+r[19]].live-r[4];S.forEach((f,i)=>w[f]+=+r[5+i]||0)});
   return order.map(k=>{const g=G[k];g.livePct=g.done?g.live/g.done*100:null;g.short=dl(k);
     if(st.gran==='week'){g.label=wkName(k)+' · week of '+dl(k);g.short=wkName(k);g.partial=wkPartial(k)}
     else{g.label=dl(k)+' A2H';g.partial=false}
@@ -283,6 +285,7 @@ $('excl').onchange=e=>{st.excl=e.target.checked;draw()};
 $('cap').onchange=e=>{st.cap=e.target.checked;draw()};
 function seg(id,items,key,cb){const el=$(id);el.innerHTML='';items.forEach(([v,l])=>{const b=document.createElement('button');b.textContent=l;b.type='button';
   b.setAttribute('aria-pressed',st[key]===v);b.onclick=()=>{st[key]=v;[...el.children].forEach((x,i)=>x.setAttribute('aria-pressed',items[i][0]===v));cb()};el.appendChild(b)})}
+seg('catSeg',[['all','All sellers'],['csa','Clothes, shoes & accessories'],['oth','Others']],'cat',draw);
 seg('gran',[['day','A2H day'],['week','A2H week (pooled)']],'gran',draw);
 seg('metricSeg',Object.keys(M).map(k=>[k,M[k].t]),'metric',()=>drawHeat(groups()));
 draw();
