@@ -1,0 +1,292 @@
+<title>A2H to Live Dashboard</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: sticky filter bar, KPI strip, live-rate chart, spend-share charts, funnel/efficiency charts, cohort grid. Every cohort chart carries a live-% strip. */
+:root{
+  --bg:#f5f6f8; --surface:#fff; --ink:#15191f; --ink2:#4a5360; --muted:#79828f; --line:#e3e6eb; --grid:#eceef2;
+  --w0:#2559d9; --w1:#d9822b; --w2:#1a7f4b; --w3:#8a4fc4; --live:#9aa6b8; --accent:#2559d9;
+  --heat0:#eef2fc; --heat1:#2559d9; --font:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif; --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12151a; --surface:#1a1e25; --ink:#e8ebf0; --ink2:#aab2be; --muted:#7f8896; --line:#2b313a; --grid:#232831;
+  --w0:#6c9bff; --w1:#f0a458; --w2:#4cc38a; --w3:#c39bff; --live:#5b677a; --accent:#6c9bff; --heat0:#1d2638; --heat1:#6c9bff; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12151a; --surface:#1a1e25; --ink:#e8ebf0; --ink2:#aab2be; --muted:#7f8896; --line:#2b313a; --grid:#232831;
+  --w0:#6c9bff; --w1:#f0a458; --w2:#4cc38a; --w3:#c39bff; --live:#5b677a; --accent:#6c9bff; --heat0:#1d2638; --heat1:#6c9bff; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.45;margin:0;
+  padding-block:0 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1280px;margin:0 auto}
+header{padding-top:24px}
+h1{font-size:22px;font-weight:600;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--ink2);margin:4px 0 0;max-width:75ch}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding:14px 0;margin-top:8px;display:flex;flex-wrap:wrap;gap:12px 20px;align-items:end;border-bottom:1px solid var(--line)}
+.bar label{display:flex;flex-direction:column;gap:3px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+select{font:inherit;font-size:13px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:6px 8px;min-width:112px}
+.chk{flex-direction:row!important;align-items:center;gap:6px!important;text-transform:none!important;letter-spacing:0!important;font-size:13px!important;color:var(--ink2)!important;padding-bottom:6px}
+.chk input{accent-color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:20px 0}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 16px;min-width:0}
+.kpi .l{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.kpi .v{font-family:var(--mono);font-size:26px;font-weight:500;margin-top:4px;font-variant-numeric:tabular-nums}
+.kpi .n{font-size:12px;color:var(--ink2);margin-top:2px}
+section{margin-top:32px}
+h2{font-size:15px;font-weight:600;margin:0}
+.sh{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;justify-content:space-between;margin-bottom:10px}
+.sh p{margin:0;color:var(--ink2);font-size:13px;max-width:80ch}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,480px),1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 16px 10px;min-width:0}
+.card h3{font-size:13px;font-weight:600;margin:0 0 2px}
+.card .cap{font-size:12px;color:var(--muted);margin:0 0 6px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--ink2);margin:4px 0 8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.wb{font:inherit;font-size:12px;color:var(--ink2);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}.wb[aria-pressed="false"]{opacity:.45;text-decoration:line-through}.wb i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px}
+.qk{display:flex;gap:14px;margin-bottom:8px}.qk button{font:inherit;font-size:13px;color:var(--accent);background:none;border:0;border-bottom:1px solid var(--accent);padding:0;cursor:pointer}
+.chips{display:flex;flex-wrap:wrap;gap:6px}.chip{font:inherit;font-size:12px;font-weight:500;color:var(--ink);background:var(--surface);border:1px solid var(--accent);border-radius:6px;padding:5px 9px;cursor:pointer}.chip[aria-pressed="false"]{color:var(--muted);border-color:var(--line);opacity:.7}
+.chart{position:relative;width:100%}
+svg{display:block;width:100%;overflow:visible}
+svg text{fill:var(--muted);font-family:var(--font);font-size:11px}
+.tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-size:12px;box-shadow:0 4px 16px #0003;z-index:4;white-space:nowrap;display:none}
+.tip b{font-weight:600}.tip .r{display:flex;justify-content:space-between;gap:16px;font-variant-numeric:tabular-nums}
+.tip .r i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--surface)}
+.seg button{font:inherit;font-size:12px;text-transform:none;letter-spacing:0;border:0;background:none;color:var(--ink2);padding:6px 10px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--surface)}
+.hm{overflow:auto;max-height:640px;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+table{border-collapse:separate;border-spacing:0;font-variant-numeric:tabular-nums;font-size:12px;width:100%;min-width:640px}
+th,td{padding:5px 8px;text-align:right;white-space:nowrap}
+thead th{position:sticky;top:0;background:var(--surface);z-index:2;color:var(--muted);font-weight:500;border-bottom:1px solid var(--line)}
+tbody th{position:sticky;left:0;background:var(--surface);text-align:left;font-weight:500;color:var(--ink2);z-index:1;border-right:1px solid var(--line)}
+thead th:first-child{left:0;z-index:3;text-align:left}
+td{font-family:var(--mono);font-size:11.5px;border-bottom:1px solid var(--surface)}
+td.na{color:var(--line)}
+.note{font-size:12px;color:var(--muted);margin-top:10px;max-width:95ch}
+.empty{padding:40px;text-align:center;color:var(--muted)}
+@media (max-width:520px){.kpi .v{font-size:22px}}
+</style>
+
+<div class="wrap">
+<header>
+  <h1>A2H to live: spend mix and funnel efficiency</h1>
+  <p class="sub">How newly onboarded sellers run Meta in each of their first four weeks live, by the day (or week) they reached A2H. Hover any chart to see how much of that cohort is live.</p>
+</header>
+
+<div class="bar" role="group" aria-label="Filters">
+  <label>Group A2H cohorts by <span class="seg" id="gran" role="group"></span></label>
+  <label class="chk"><input type="checkbox" id="partial"> Include partial weeks</label>
+  <label class="chk"><input type="checkbox" id="excl"> Exclude outlier sellers (W0 S/GMV under 5%)</label>
+  <label class="chk"><input type="checkbox" id="cap" checked> Cap S/GMV axis at 150%</label>
+</div>
+
+<section style="margin-top:18px"><div class="sh"><h2>A2H weeks</h2><p>Select the A2H weeks to include. In day view, every A2H date inside the selected weeks is shown.</p></div><div class="qk" id="qk"></div><div class="chips" id="chips"></div></section>
+<div class="kpis" id="kpis"></div>
+
+<section>
+  <div class="sh"><h2>Live rate</h2><p>Sellers that finished A2H, and how many of them have started Meta spend since (D0 = first spend day on or after A2H). Recent cohorts are low simply because they have not had time yet.</p></div>
+  <div class="card"><h3>A2H done vs live <span id="gl"></span></h3>
+    <div class="legend"><span><i style="background:var(--live)"></i>A2H done</span><span><i style="background:var(--w0)"></i>Live from A2H</span><span><i style="background:var(--w2)"></i>Live % (right-hand scale)</span></div>
+    <div class="chart" id="cl"></div></div>
+</section>
+
+<section>
+  <div class="sh"><h2>Spend shares</h2><p>Share of Meta spend in each week since go-live. Each line is one week of the seller's life (click a week to show or hide it); the dotted line in each colour is its average across the selected cohorts; a seller counts in a week only once that week has fully elapsed.</p></div>
+  <div class="legend" id="wlegend"></div>
+  <div class="pair" id="shares"></div>
+</section>
+
+<section>
+  <div class="sh"><h2>Funnel and efficiency</h2><p>Pooled across the sellers in each cohort, so large sellers weigh more. S/GMV uses platform GMV (shipped, non-expired orders) in the same days.</p></div>
+  <div class="pair" id="perf"></div>
+</section>
+
+<section>
+  <div class="sh"><h2>Cohort grid</h2><div class="seg" id="metricSeg" role="group" aria-label="Metric"></div></div>
+  <div class="hm" id="hm"></div>
+  <p class="note" id="hmNote"></p>
+</section>
+
+<p class="note">Source: Metabase question "A2H to Live Spend Shares" (card 18534) logic, re-run with raw numerators so cohorts can be pooled by week; spend shares match the original question. Dashboard built __BUILT__. The partial week is the current, still running A2H week; it is hidden unless Include partial weeks is ticked. Outlier sellers have W0 S/GMV under 5%. Windows: W0 is the seller's first week since first Meta spend, W1 the next, and so on.</p>
+</div>
+<div class="tip" id="tip"></div>
+
+<script>
+// [a2h_date, a2h_done, live, win(-1 none), sellers, spend, impressions, clicks, purchases, gmv, video_sp, ad_sp, age1844, age_sp, nonlal, adset_sp, ig, plat_sp]
+const RAW=/*DATA*/[];
+const $=id=>document.getElementById(id);
+const WL=['W0','W1','W2','W3'];
+const WC=['var(--w0)','var(--w1)','var(--w2)','var(--w3)'];
+const dates=[...new Set(RAW.map(r=>r[0]))].sort().reverse();
+const base={};RAW.forEach(r=>{base[r[0]+"|"+r[18]]={done:r[1],live:r[2]}});
+const MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const P=s=>new Date(s+'T00:00:00Z');
+const dl=s=>{const t=P(s);return `${t.getUTCDate()} ${MN[t.getUTCMonth()]}`};
+const monday=s=>{const t=P(s);t.setUTCDate(t.getUTCDate()-((t.getUTCDay()+6)%7));return t.toISOString().slice(0,10)};
+const isoWeek=s=>{const t=P(s);t.setUTCDate(t.getUTCDate()+3-((t.getUTCDay()+6)%7));const j=new Date(Date.UTC(t.getUTCFullYear(),0,4));
+  return 1+Math.round(((t-j)/864e5-3+((j.getUTCDay()+6)%7))/7)};
+const latest=P(dates[0]);
+const pct=(x,d=1)=>x==null||!isFinite(x)?'–':x.toFixed(d)+'%';
+const inr=x=>x==null?'–':x>=1e7?(x/1e7).toFixed(2)+' Cr':x>=1e5?(x/1e5).toFixed(2)+' L':Math.round(x).toLocaleString('en-IN');
+const rup=x=>x==null||!isFinite(x)?'–':'₹'+x.toFixed(0);
+const st={w:[true,true,true,true],gran:'day',weeks:new Set(),partial:false,excl:false,cap:true,metric:'video'};
+const CAP=150;
+
+const S=['spend','impr','clicks','purch','gmv','vsp','adsp','a','agesp','nl','adset','ig','plat'];
+const M={
+ video:{t:'Video',c:'Video spend ÷ ad spend',f:s=>s.vsp/s.adsp*100,u:pct,ax:v=>v+'%'},
+ age:{t:'Age 18-44',c:'Spend on ages 18-44 ÷ spend with age breakdown',f:s=>s.a/s.agesp*100,u:pct,ax:v=>v+'%'},
+ nl:{t:'Non-LAL',c:'Spend in ad sets with no lookalike audience ÷ ad set spend',f:s=>s.nl/s.adset*100,u:pct,ax:v=>v+'%'},
+ ig:{t:'Instagram',c:'Instagram spend ÷ spend with platform breakdown',f:s=>s.ig/s.plat*100,u:pct,ax:v=>v+'%'},
+ cpm:{low:1,t:'CPM',c:'Spend per 1,000 impressions',f:s=>s.spend/s.impr*1000,u:rup,ax:v=>'₹'+v},
+ ctr:{t:'CTR',c:'Clicks ÷ impressions',f:s=>s.clicks/s.impr*100,u:v=>pct(v,2),ax:v=>v+'%'},
+ c2pr:{t:'C2PR',c:'Purchases ÷ clicks',f:s=>s.purch/s.clicks*100,u:v=>pct(v,2),ax:v=>v+'%'},
+ sgmv:{low:1,t:'S/GMV',c:'Spend as % of platform GMV; lower is more efficient',f:s=>s.gmv>0?s.spend/s.gmv*100:null,u:pct,ax:v=>v+'%',cap:true}
+};
+const TITLE={video:'Video share of spend',age:'18-44 share of spend',nl:'Non-LAL share of spend',ig:'Instagram share of spend',cpm:'CPM',ctr:'CTR',c2pr:'C2PR (click to purchase rate)',sgmv:'S/GMV'};
+const SHARE=['video','age','nl','ig'],PERF=['cpm','ctr','c2pr','sgmv'];
+
+const ok=q=>q.sel;
+const wkName=k=>{const th=P(k);th.setUTCDate(th.getUTCDate()+3);return th.getUTCFullYear()+'W'+String(isoWeek(k)).padStart(2,'0')};
+const wkPartial=k=>{const e=P(k);e.setUTCDate(e.getUTCDate()+6);return e>latest};
+const outs=()=>st.excl?[0]:[0,1];
+function groups(){
+  const inc=d=>st.weeks.has(monday(d))&&(st.partial||!wkPartial(monday(d)));
+  const ds=dates.filter(inc).sort();
+  const keyOf=d=>st.gran==='day'?d:monday(d);
+  const order=[],G={};
+  ds.forEach(d=>{const k=keyOf(d);if(!G[k]){G[k]={k,days:[],done:0,live:0,w:[0,1,2,3].map(()=>{const o={sel:0,pend:0};S.forEach(f=>o[f]=0);return o})};order.push(k)}
+    const g=G[k];g.days.push(d);outs().forEach(o=>{const b=base[d+'|'+o];if(b){g.done+=b.done;g.live+=b.live}})});
+  RAW.forEach(r=>{if(r[3]<0||(st.excl&&r[18])||!inc(r[0]))return;const w=G[keyOf(r[0])].w[r[3]];
+    w.sel+=r[4];w.pend+=base[r[0]+'|'+r[18]].live-r[4];S.forEach((f,i)=>w[f]+=+r[5+i]||0)});
+  return order.map(k=>{const g=G[k];g.livePct=g.done?g.live/g.done*100:null;g.short=dl(k);
+    if(st.gran==='week'){g.label=wkName(k)+' · week of '+dl(k);g.short=wkName(k);g.partial=wkPartial(k)}
+    else{g.label=dl(k)+' A2H';g.partial=false}
+    return g});
+}
+
+const tip=$('tip');
+function showTip(html,ev){tip.innerHTML=html;tip.style.display='block';const w=tip.offsetWidth,h=tip.offsetHeight;let x=ev.clientX+14,y=ev.clientY+14;
+  if(x+w>innerWidth-8)x=ev.clientX-w-14;if(y+h>innerHeight-8)y=ev.clientY-h-14;tip.style.position='fixed';tip.style.left=x+'px';tip.style.top=y+'px'}
+const hideTip=()=>tip.style.display='none';
+function niceStep(x){const p=Math.pow(10,Math.floor(Math.log10(x||1)));const f=x/p;return (f<=1?1:f<=2?2:f<=5?5:10)*p}
+
+function chart(cfg){
+  const el=$(cfg.el),n=cfg.xs.length;
+  const W=Math.max(280,el.clientWidth),H=262,strip=0,gap=0,m={l:48,r:12,t:10,b:26};
+  const iw=W-m.l-m.r,ih=H-m.t-m.b-strip-gap;
+  const all=cfg.series.flatMap(s=>s.vals).filter(v=>v!=null&&isFinite(v));
+  if(!all.length||!n){el.innerHTML='<div class="empty">No data for this selection</div>';return}
+  let top=Math.max(...all);if(cfg.capAt)top=Math.min(top,cfg.capAt);
+  const step=niceStep(top/4);top=Math.ceil(top/step)*step;
+  const bw=Math.max(2,Math.min(26,iw/n*.7));
+  const X=i=>m.l+(i+.5)*iw/n,Y=v=>m.t+ih-Math.min(v,top)/top*ih;
+  const y0=m.t+ih+gap,Ys=p=>y0+strip-Math.min(p,100)/100*strip;
+  let s=`<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="${cfg.label}">`;
+  for(let v=0;v<=top+1e-9;v+=step)s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--grid)"/><text x="${m.l-6}" y="${Y(v)+4}" text-anchor="end">${cfg.ax(+v.toFixed(2))}</text>`;
+  const every=Math.ceil(n/Math.max(2,Math.floor(iw/58)));
+  cfg.xs.forEach((x,i)=>{if(i%every===0||(i===n-1&&n<12))s+=`<text x="${X(i)}" y="${H-6}" text-anchor="middle">${x.short}</text>`});
+  cfg.series.forEach(se=>{const fv=se.vals.filter(v=>v!=null&&isFinite(v));se.avg=fv.length?fv.reduce((a,b)=>a+b,0)/fv.length:null;
+    if(se.avg!=null)s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${Y(se.avg)}" y2="${Y(se.avg)}" stroke="${se.color}" stroke-opacity=".55" stroke-width="1" stroke-dasharray="2 4"/>`});
+  cfg.series.forEach(se=>{let d='',pen=false;
+    se.vals.forEach((v,i)=>{if(v==null||!isFinite(v)){pen=false;return}d+=(pen?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1);pen=true});
+    s+=`<path d="${d}" fill="none" stroke="${se.color}" stroke-width="${se.name==="W0"?3:1.5}" opacity="${se.name==="W0"?1:.75}" stroke-linejoin="round" stroke-linecap="round"/>`;
+    if(n<=16)se.vals.forEach((v,i)=>{if(v!=null&&isFinite(v)){const c=v>top;s+=`<circle cx="${X(i)}" cy="${Y(v)}" r="3.2" fill="${c?'var(--surface)':se.color}" stroke="${se.color}" stroke-width="1.8"/>`}});
+    else se.vals.forEach((v,i)=>{if(v>top)s+=`<circle cx="${X(i)}" cy="${Y(v)}" r="2.6" fill="var(--surface)" stroke="${se.color}" stroke-width="1.4"/>`});
+  });
+  s+=`<line id="${cfg.el}x" y1="${m.t}" y2="${y0+strip}" stroke="var(--muted)" stroke-dasharray="3 3" style="display:none"/>`;
+  s+=`<rect x="${m.l}" y="${m.t}" width="${iw}" height="${H-m.t-m.b}" fill="transparent" id="${cfg.el}h"/></svg>`;
+  el.innerHTML=s;
+  const h=$(cfg.el+'h'),cx=$(cfg.el+'x');
+  h.addEventListener('pointermove',ev=>{const b=h.getBoundingClientRect();const i=Math.max(0,Math.min(n-1,Math.floor((ev.clientX-b.left)/b.width*n)));
+    cx.setAttribute('x1',X(i));cx.setAttribute('x2',X(i));cx.style.display='';const x=cfg.xs[i];
+    let t=`<b>${x.label}</b>${x.partial?' <span style="color:var(--muted)">(partial week)</span>':''}<div class="m" style="margin:0 0 4px;font-size:11px">${pct(x.livePct,1)} live (${x.live} of ${x.done} A2H)</div>`;
+    cfg.series.forEach(se=>{t+=`<div class="r"${se.name==="W0"?' style="font-weight:600"':''}><span><i style="background:${se.color}"></i>${se.name}</span><span>${cfg.fmt(se.vals[i])}${se.ns&&se.ns[i]?` <span style="color:var(--muted)">· ${se.ns[i]} sellers</span>`:''}</span></div>`});
+    t+=`<div class="m" style="color:var(--muted);margin-top:3px">Average of selected ${st.gran==="day"?"days":"weeks"}: ${cfg.series.map(se=>cfg.series.length>1?se.name+" "+cfg.fmt(se.avg):cfg.fmt(se.avg)).join(" · ")}</div>`;
+    showTip(t,ev)});
+  h.addEventListener('pointerleave',()=>{cx.style.display='none';hideTip()});
+}
+
+function liveChart(G){
+  const el=$('cl'),n=G.length,W=Math.max(280,el.clientWidth),H=270,m={l:48,r:44,t:10,b:26};
+  const iw=W-m.l-m.r,ih=H-m.t-m.b;
+  if(!n){el.innerHTML='<div class="empty">No data</div>';return}
+  const mx=Math.max(...G.map(g=>g.done));const step=niceStep(mx/4);const top=Math.ceil(mx/step)*step;
+  const X=i=>m.l+(i+.5)*iw/n,Y=v=>m.t+ih-v/top*ih,Yp=p=>m.t+ih-Math.min(p,100)/100*ih;
+  const bw=Math.max(2,Math.min(30,iw/n*.72)),half=bw/2;
+  let s=`<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="A2H done and live by cohort">`;
+  for(let v=0;v<=top+1e-9;v+=step)s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--grid)"/><text x="${m.l-6}" y="${Y(v)+4}" text-anchor="end">${v}</text>`;
+  [0,25,50,75,100].forEach(p=>s+=`<text x="${W-m.r+6}" y="${Yp(p)+4}">${p}%</text>`);
+  G.forEach((g,i)=>{s+=`<rect x="${X(i)-half}" y="${Y(g.done)}" width="${bw}" height="${Y(0)-Y(g.done)}" rx="1.5" fill="var(--live)" opacity="${g.partial?.55:1}"/>`;
+    s+=`<rect x="${X(i)-half}" y="${Y(g.live)}" width="${bw}" height="${Y(0)-Y(g.live)}" rx="1.5" fill="var(--w0)"/>`});
+  let d='';G.forEach((g,i)=>d+=(i?'L':'M')+X(i).toFixed(1)+' '+Yp(g.livePct).toFixed(1));
+  s+=`<path d="${d}" fill="none" stroke="var(--w2)" stroke-width="2" stroke-linejoin="round"/>`;
+  const av=G.filter(g=>g.livePct!=null).reduce((a,g,_,r)=>a+g.livePct/r.length,0);
+  s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${Yp(av)}" y2="${Yp(av)}" stroke="var(--w2)" stroke-opacity=".6" stroke-dasharray="2 4"/>`;
+  if(n<=24)G.forEach((g,i)=>s+=`<circle cx="${X(i)}" cy="${Yp(g.livePct)}" r="3" fill="var(--w2)"/>`);
+  const every=Math.ceil(n/Math.max(2,Math.floor(iw/58)));
+  G.forEach((g,i)=>{if(i%every===0)s+=`<text x="${X(i)}" y="${H-6}" text-anchor="middle">${g.short}</text>`});
+  s+=`<rect x="${m.l}" y="${m.t}" width="${iw}" height="${ih}" fill="transparent" id="clh"/></svg>`;
+  el.innerHTML=s;const h=$('clh');
+  h.addEventListener('pointermove',ev=>{const b=h.getBoundingClientRect();const i=Math.max(0,Math.min(n-1,Math.floor((ev.clientX-b.left)/b.width*n)));const g=G[i];
+    showTip(`<b>${g.label}</b>${g.partial?' <span style="color:var(--muted)">(partial week)</span>':''}<div class="r"><span><i style="background:var(--live)"></i>A2H done</span><span>${g.done}</span></div><div class="r"><span><i style="background:var(--w0)"></i>Live from A2H</span><span>${g.live}</span></div><div class="r"><span><i style="background:var(--w2)"></i>Live %</span><span>${pct(g.livePct)}</span></div><div class="m" style="color:var(--muted);margin-top:3px">Average live %: ${pct(av)}</div>`,ev)});
+  h.addEventListener('pointerleave',hideTip);
+}
+
+const mk=(host,key)=>host.insertAdjacentHTML('beforeend',`<div class="card"><h3>${TITLE[key]}</h3><p class="cap">${M[key].c}</p><div class="chart" id="ch_${key}"></div></div>`);
+SHARE.forEach(k=>mk($('shares'),k));PERF.forEach(k=>mk($('perf'),k));
+$('wlegend').innerHTML=WL.map((l,i)=>`<button type="button" class="wb" data-w="${i}" aria-pressed="true"><i style="background:${WC[i]}"></i>${l}</button>`).join('');
+$('wlegend').onclick=e=>{const b=e.target.closest('.wb');if(!b)return;const w=+b.dataset.w;st.w[w]=!st.w[w];b.setAttribute('aria-pressed',st.w[w]);draw()};
+
+function draw(){
+  const G=groups(),xs=G.map(g=>({short:g.short,label:g.label,done:g.done,live:g.live,livePct:g.livePct,partial:g.partial}));
+  const tot=G.reduce((a,g)=>({done:a.done+g.done,live:a.live+g.live}),{done:0,live:0});
+  const w0={};S.forEach(f=>w0[f]=G.reduce((a,g)=>a+(ok(g.w[0])?g.w[0][f]:0),0));
+  $('kpis').innerHTML=[['A2H done',tot.done.toLocaleString('en-IN'),`${G.length} ${st.gran==='day'?'A2H days':'A2H weeks'}`],
+    ['Live from A2H',pct(tot.done?tot.live/tot.done*100:null),`${tot.live.toLocaleString('en-IN')} sellers`],
+    ['W0 video share',pct(M.video.f(w0)),`Meta spend ${inr(w0.spend)} in W0`],
+    ['W0 S/GMV',pct(M.sgmv.f(w0)),`CPM ${rup(M.cpm.f(w0))} · CTR ${pct(M.ctr.f(w0),2)}`]
+  ].map(([l,v,n])=>`<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div><div class="n">${n}</div></div>`).join('');
+  $('gl').textContent='· by A2H '+(st.gran==='day'?'day':'week');
+  liveChart(G);
+  [...SHARE,...PERF].forEach(k=>{const m=M[k];
+    chart({el:'ch_'+k,label:TITLE[k]+' by A2H cohort',xs,fmt:m.u,ax:m.ax,capAt:m.cap&&st.cap?CAP:null,
+      series:[0,1,2,3].filter(w=>st.w[w]).map(w=>({name:WL[w],color:WC[w],vals:G.map(g=>{const q=g.w[w];if(!ok(q))return null;const v=m.f(q);return v!=null&&isFinite(v)?v:null}),ns:G.map(g=>ok(g.w[w])?g.w[w].sel:0)}))})});
+  drawHeat(G);
+}
+
+const mix=t=>`hsl(${Math.round(t*125)} 52% 36%)`;
+function drawHeat(G){
+  const m=M[st.metric],f=m.f;
+  const cells=G.map(g=>g.w.map(q=>{if(!ok(q))return null;const v=f(q);return v!=null&&isFinite(v)?v:null}));
+  const vals=cells.flat().filter(v=>v!=null).sort((a,b)=>a-b);const hi=vals[Math.floor(vals.length*.95)]||1,lo=vals[Math.floor(vals.length*.05)]||0;
+  const dig=st.metric==='cpm'?0:(['ctr','c2pr'].includes(st.metric)?2:1);
+  let h='<table><thead><tr><th>A2H cohort</th><th>A2H done</th><th>Live</th><th>Live %</th>'+WL.map((w,i)=>st.w[i]?`<th>${w}</th>`:'').join('')+'</tr></thead><tbody>';
+  for(let ci=G.length-1;ci>=0;ci--){const g=G[ci];
+    h+=`<tr><th>${g.label}</th><td style="color:var(--muted)">${g.done}</td><td style="color:var(--muted)">${g.live}</td><td>${pct(g.livePct,0)}</td>`;
+    cells[ci].forEach((v,w)=>{if(!st.w[w])return;if(v==null){h+='<td class="na">·</td>';return}
+      let t=Math.max(0,Math.min(1,(v-lo)/((hi-lo)||1)));if(m.low)t=1-t;
+      h+=`<td title="${g.w[w].sel} sellers" style="background:${mix(t)};color:#fff">${v.toFixed(dig)}</td>`});
+    h+='</tr>'}
+  $('hm').innerHTML=h+'</tbody></table>';
+  $('hmNote').textContent=TITLE[st.metric]+': '+m.c+'. Green is better, red is worse (lower is better for CPM and S/GMV, higher for the rest), scaled from the 5th to the 95th percentile. A dot means no seller in the cohort has completed that week yet.';
+}
+
+const wkKeys=[...new Set(dates.map(monday))].sort();wkKeys.forEach(k=>st.weeks.add(k));
+$('chips').innerHTML=wkKeys.map(k=>'<button type="button" class="chip" data-k="'+k+'" aria-pressed="true">'+wkName(k)+(wkPartial(k)?' (so far)':'')+'</button>').join('');
+const syncChips=()=>document.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed',st.weeks.has(c.dataset.k)));
+$('chips').onclick=e=>{const c=e.target.closest('.chip');if(!c)return;st.weeks.has(c.dataset.k)?st.weeks.delete(c.dataset.k):st.weeks.add(c.dataset.k);syncChips();draw()};
+$('qk').innerHTML=[['All',0],['Last 26',26],['Last 12',12],['Last 8',8],['Clear',-1]].map(([l,n])=>'<button type="button" data-n="'+n+'">'+l+'</button>').join('');
+$('qk').onclick=e=>{const b=e.target.closest('button');if(!b)return;const n=+b.dataset.n;st.weeks=new Set(n<0?[]:n===0?wkKeys:wkKeys.slice(-n));syncChips();draw()};
+$('partial').onchange=e=>{st.partial=e.target.checked;draw()};
+$('excl').onchange=e=>{st.excl=e.target.checked;draw()};
+$('cap').onchange=e=>{st.cap=e.target.checked;draw()};
+function seg(id,items,key,cb){const el=$(id);el.innerHTML='';items.forEach(([v,l])=>{const b=document.createElement('button');b.textContent=l;b.type='button';
+  b.setAttribute('aria-pressed',st[key]===v);b.onclick=()=>{st[key]=v;[...el.children].forEach((x,i)=>x.setAttribute('aria-pressed',items[i][0]===v));cb()};el.appendChild(b)})}
+seg('gran',[['day','A2H day'],['week','A2H week (pooled)']],'gran',draw);
+seg('metricSeg',Object.keys(M).map(k=>[k,M[k].t]),'metric',()=>drawHeat(groups()));
+draw();
+let rt,lw=document.querySelector('.wrap').clientWidth;
+new ResizeObserver(()=>{const w=document.querySelector('.wrap').clientWidth;if(w===lw)return;lw=w;clearTimeout(rt);rt=setTimeout(draw,80)}).observe(document.querySelector('.wrap'));
+addEventListener('load',()=>requestAnimationFrame(draw));
+</script>
