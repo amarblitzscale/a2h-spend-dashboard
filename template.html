@@ -126,7 +126,7 @@ const dl=s=>{const t=P(s);return `${t.getUTCDate()} ${MN[t.getUTCMonth()]}`};
 const monday=s=>{const t=P(s);t.setUTCDate(t.getUTCDate()-((t.getUTCDay()+6)%7));return t.toISOString().slice(0,10)};
 const isoWeek=s=>{const t=P(s);t.setUTCDate(t.getUTCDate()+3-((t.getUTCDay()+6)%7));const j=new Date(Date.UTC(t.getUTCFullYear(),0,4));
   return 1+Math.round(((t-j)/864e5-3+((j.getUTCDay()+6)%7))/7)};
-const latest=P(dates[0]);
+const latest=P(new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata'}).format(new Date()));   // today, IST
 const pct=(x,d=1)=>x==null||!isFinite(x)?'–':x.toFixed(d)+'%';
 const inr=x=>x==null?'–':x>=1e7?(x/1e7).toFixed(2)+' Cr':x>=1e5?(x/1e5).toFixed(2)+' L':Math.round(x).toLocaleString('en-IN');
 const rup=x=>x==null||!isFinite(x)?'–':'₹'+x.toFixed(0);
@@ -149,7 +149,7 @@ const SHARE=['video','age','nl','ig'],PERF=['cpm','ctr','c2pr','sgmv'];
 
 const ok=q=>q.sel;
 const wkName=k=>{const th=P(k);th.setUTCDate(th.getUTCDate()+3);return th.getUTCFullYear()+'W'+String(isoWeek(k)).padStart(2,'0')};
-const wkPartial=k=>{const e=P(k);e.setUTCDate(e.getUTCDate()+6);return e>latest};
+const wkPartial=k=>{const e=P(k);e.setUTCDate(e.getUTCDate()+6);return e>=latest};
 const outs=()=>st.excl?[0]:[0,1];
 const cats=()=>st.cat==='all'?[0,1]:st.cat==='csa'?[1]:[0];
 function groups(){
