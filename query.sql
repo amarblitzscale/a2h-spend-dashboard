@@ -112,6 +112,7 @@ base AS (
   GROUP BY 1, 2, 3
 )
 SELECT b.a2h_date, b.outlier, b.csa, b.a2h_done, b.live_from_a2h, g.win, g.sellers, g.spend, g.impressions, g.clicks, g.purchases, g.gmv,
-       g.video_spend, g.ad_spend, g.age_18_44, g.age_spend, g.non_lal_spend, g.adset_spend, g.ig_spend, g.plat_spend
+       g.video_spend, g.ad_spend, g.age_18_44, g.age_spend, g.non_lal_spend, g.adset_spend, g.ig_spend, g.plat_spend,
+       CURRENT_TIMESTAMP() AS refreshed_at   -- shown on the dashboard as the data refresh time
 FROM base b LEFT JOIN agg g ON g.a2h_date = b.a2h_date AND g.outlier = b.outlier AND g.csa = b.csa
 ORDER BY 1 DESC, 2, 3, 6

@@ -27,10 +27,14 @@ const out = d.map(x => [x.a2h_date, x.a2h_done, x.live_from_a2h, x.win ? W[x.win
   r(x.non_lal_spend), r(x.adset_spend), r(x.ig_spend), r(x.plat_spend), x.outlier || 0, x.csa || 0]);
 
 const HEAD = '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<style>html,body{margin:0}img{max-width:100%}</style>\n';
-const built = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' }) + ' IST';
+const fmt = dt => dt.toLocaleString('en-GB', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' }) + ' IST';
+const built = fmt(new Date());
+const ref = d[0].refreshed_at ? new Date(d[0].refreshed_at) : null;   // CURRENT_TIMESTAMP() column of the master query
+const updated = ref && !isNaN(ref) ? 'Data last refreshed: ' + fmt(ref) : 'Page built: ' + built + ' (data refresh time not available: add the refreshed_at column to the question)';
 const html = HEAD + readFileSync('template.html', 'utf8')
   .replace('/*DATA*/[]', () => JSON.stringify(out))
-  .replaceAll('__BUILT__', built);
+  .replaceAll('__BUILT__', built)
+  .replaceAll('__UPDATED__', updated);
 mkdirSync('dist', { recursive: true });
 writeFileSync('dist/index.html', html);
 console.log(`Built dist/index.html from ${out.length} rows`);
