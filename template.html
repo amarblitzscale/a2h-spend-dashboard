@@ -63,6 +63,7 @@ thead th:first-child{left:0;z-index:3;text-align:left}
 td{font-family:var(--mono);font-size:11.5px;border-bottom:1px solid var(--surface)}
 td.na{color:var(--line)}
 .upd{margin:6px 0 0;font-size:12px;color:var(--muted)}
+td.pt{outline:1px dashed var(--ink2);outline-offset:-3px}
 .note{font-size:12px;color:var(--muted);margin-top:10px;max-width:95ch}
 .empty{padding:40px;text-align:center;color:var(--muted)}
 @media (max-width:520px){.kpi .v{font-size:22px}}
@@ -78,7 +79,8 @@ td.na{color:var(--line)}
 <div class="bar" role="group" aria-label="Filters">
   <label>Sellers <span class="seg" id="catSeg" role="group"></span></label>
   <label>Group A2H cohorts by <span class="seg" id="gran" role="group"></span></label>
-  <label class="chk"><input type="checkbox" id="partial"> Include partial weeks</label>
+  <label class="chk"><input type="checkbox" id="partial"> Include current A2H week</label>
+  <label class="chk"><input type="checkbox" id="pw"> Include partial weeks (sellers part-way through W0-W3)</label>
   <label class="chk"><input type="checkbox" id="excl"> Exclude outlier sellers (W0 S/GMV under 5%)</label>
   <label class="chk"><input type="checkbox" id="cap" checked> Cap S/GMV axis at 150%</label>
 </div>
@@ -110,7 +112,7 @@ td.na{color:var(--line)}
   <p class="note" id="hmNote"></p>
 </section>
 
-<p class="note">Source: Metabase question "A2H to Live Spend Shares" (card 18534) logic, re-run with raw numerators so cohorts can be pooled by week; spend shares match the original question. Dashboard built __BUILT__. The partial week is the current, still running A2H week; it is hidden unless Include partial weeks is ticked. Outlier sellers have W0 S/GMV under 5%. Windows: W0 is the seller's first week since first Meta spend, W1 the next, and so on.</p>
+<p class="note">Source: Metabase question "A2H to Live Spend Shares" (card 18534) logic, re-run with raw numerators so cohorts can be pooled by week; spend shares match the original question. Dashboard built __BUILT__. The current A2H week is hidden unless Include current A2H week is ticked. A seller counts in W0-W3 from the first day of that week; weeks still running for a seller are hidden unless Include partial weeks is ticked, and shown with a dashed outline in the grid. Outlier sellers have W0 S/GMV under 5%. Windows: W0 is the seller's first week since first Meta spend, W1 the next, and so on.</p>
 </div>
 <div class="tip" id="tip"></div>
 
@@ -132,7 +134,7 @@ const latest=P(new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata'}).format
 const pct=(x,d=1)=>x==null||!isFinite(x)?'–':x.toFixed(d)+'%';
 const inr=x=>x==null?'–':x>=1e7?(x/1e7).toFixed(2)+' Cr':x>=1e5?(x/1e5).toFixed(2)+' L':Math.round(x).toLocaleString('en-IN');
 const rup=x=>x==null||!isFinite(x)?'–':'₹'+x.toFixed(0);
-const st={cat:'all',w:[true,true,true,true],gran:'week',weeks:new Set(),partial:false,excl:false,cap:true,metric:'video'};
+const st={pw:false,cat:'all',w:[true,true,true,true],gran:'week',weeks:new Set(),partial:false,excl:false,cap:true,metric:'video'};
 const CAP=150;
 
 const S=['spend','impr','clicks','purch','gmv','vsp','adsp','a','agesp','nl','adset','ig','plat'];
@@ -159,10 +161,10 @@ function groups(){
   const ds=dates.filter(inc).sort();
   const keyOf=d=>st.gran==='day'?d:monday(d);
   const order=[],G={};
-  ds.forEach(d=>{const k=keyOf(d);if(!G[k]){G[k]={k,days:[],done:0,live:0,w:[0,1,2,3].map(()=>{const o={sel:0,pend:0};S.forEach(f=>o[f]=0);return o})};order.push(k)}
+  ds.forEach(d=>{const k=keyOf(d);if(!G[k]){G[k]={k,days:[],done:0,live:0,w:[0,1,2,3].map(()=>{const o={sel:0,psel:0};S.forEach(f=>o[f]=0);return o})};order.push(k)}
     const g=G[k];g.days.push(d);outs().forEach(o=>cats().forEach(c=>{const b=base[d+'|'+o+'|'+c];if(b){g.done+=b.done;g.live+=b.live}}))});
-  RAW.forEach(r=>{if(r[3]<0||(st.excl&&r[18])||!cats().includes(r[19])||!inc(r[0]))return;const w=G[keyOf(r[0])].w[r[3]];
-    w.sel+=r[4];w.pend+=base[r[0]+'|'+r[18]+'|'+r[19]].live-r[4];S.forEach((f,i)=>w[f]+=+r[5+i]||0)});
+  RAW.forEach(r=>{if(r[3]<0||(st.excl&&r[18])||!cats().includes(r[19])||!inc(r[0])||(r[20]&&!st.pw))return;const w=G[keyOf(r[0])].w[r[3]];
+    w.sel+=r[4];if(r[20])w.psel+=r[4];S.forEach((f,i)=>w[f]+=+r[5+i]||0)});
   return order.map(k=>{const g=G[k];g.livePct=g.done?g.live/g.done*100:null;g.short=dl(k);
     if(st.gran==='week'){g.label=wkName(k)+' · week of '+dl(k);g.short=wkName(k);g.partial=wkPartial(k)}
     else{g.label=dl(k)+' A2H';g.partial=false}
@@ -205,7 +207,7 @@ function chart(cfg){
   h.addEventListener('pointermove',ev=>{const b=h.getBoundingClientRect();const i=Math.max(0,Math.min(n-1,Math.floor((ev.clientX-b.left)/b.width*n)));
     cx.setAttribute('x1',X(i));cx.setAttribute('x2',X(i));cx.style.display='';const x=cfg.xs[i];
     let t=`<b>${x.label}</b>${x.partial?' <span style="color:var(--muted)">(partial week)</span>':''}<div class="m" style="margin:0 0 4px;font-size:11px">${pct(x.livePct,1)} live (${x.live} of ${x.done} A2H)</div>`;
-    cfg.series.forEach(se=>{t+=`<div class="r"${se.name==="W0"?' style="font-weight:600"':''}><span><i style="background:${se.color}"></i>${se.name}</span><span>${cfg.fmt(se.vals[i])}${se.ns&&se.ns[i]?` <span style="color:var(--muted)">· ${se.ns[i]} sellers</span>`:''}</span></div>`});
+    cfg.series.forEach(se=>{t+=`<div class="r"${se.name==="W0"?' style="font-weight:600"':''}><span><i style="background:${se.color}"></i>${se.name}</span><span>${cfg.fmt(se.vals[i])}${se.ns&&se.ns[i]?` <span style="color:var(--muted)">· ${se.ns[i]} sellers${se.ps&&se.ps[i]?' ('+se.ps[i]+' part-way)':''}</span>`:''}</span></div>`});
     t+=`<div class="m" style="color:var(--muted);margin-top:3px">Average of selected ${st.gran==="day"?"days":"weeks"}: ${cfg.series.map(se=>cfg.series.length>1?se.name+" "+cfg.fmt(se.avg):cfg.fmt(se.avg)).join(" · ")}</div>`;
     showTip(t,ev)});
   h.addEventListener('pointerleave',()=>{cx.style.display='none';hideTip()});
@@ -255,7 +257,7 @@ function draw(){
   liveChart(G);
   [...SHARE,...PERF].forEach(k=>{const m=M[k];
     chart({el:'ch_'+k,label:TITLE[k]+' by A2H cohort',xs,fmt:m.u,ax:m.ax,capAt:m.cap&&st.cap?CAP:null,
-      series:[0,1,2,3].filter(w=>st.w[w]).map(w=>({name:WL[w],color:WC[w],vals:G.map(g=>{const q=g.w[w];if(!ok(q))return null;const v=m.f(q);return v!=null&&isFinite(v)?v:null}),ns:G.map(g=>ok(g.w[w])?g.w[w].sel:0)}))})});
+      series:[0,1,2,3].filter(w=>st.w[w]).map(w=>({name:WL[w],color:WC[w],vals:G.map(g=>{const q=g.w[w];if(!ok(q))return null;const v=m.f(q);return v!=null&&isFinite(v)?v:null}),ns:G.map(g=>ok(g.w[w])?g.w[w].sel:0),ps:G.map(g=>ok(g.w[w])?g.w[w].psel:0)}))})});
   drawHeat(G);
 }
 
@@ -270,10 +272,10 @@ function drawHeat(G){
     h+=`<tr><th>${g.label}</th><td style="color:var(--muted)">${g.done}</td><td style="color:var(--muted)">${g.live}</td><td>${pct(g.livePct,0)}</td>`;
     cells[ci].forEach((v,w)=>{if(!st.w[w])return;if(v==null){h+='<td class="na">·</td>';return}
       let t=Math.max(0,Math.min(1,(v-lo)/((hi-lo)||1)));if(m.low)t=1-t;
-      h+=`<td title="${g.w[w].sel} sellers" style="background:${mix(t)};color:#fff">${v.toFixed(dig)}</td>`});
+      h+=`<td class="${g.w[w].psel?'pt':''}" title="${g.w[w].sel} sellers${g.w[w].psel?', '+g.w[w].psel+' part-way through the week':''}" style="background:${mix(t)};color:#fff">${v.toFixed(dig)}</td>`});
     h+='</tr>'}
   $('hm').innerHTML=h+'</tbody></table>';
-  $('hmNote').textContent=TITLE[st.metric]+': '+m.c+'. Green is better, red is worse (lower is better for CPM and S/GMV, higher for the rest), scaled from the 5th to the 95th percentile. A dot means no seller in the cohort has completed that week yet.';
+  $('hmNote').textContent=TITLE[st.metric]+': '+m.c+'. Green is better, red is worse (lower is better for CPM and S/GMV, higher for the rest), scaled from the 5th to the 95th percentile. A dot means no seller in the cohort has reached that week yet. Dashed cells include sellers who are still part-way through the week.';
 }
 
 const wkKeys=[...new Set(dates.map(monday))].sort();wkKeys.forEach(k=>st.weeks.add(k));
@@ -283,6 +285,7 @@ $('chips').onclick=e=>{const c=e.target.closest('.chip');if(!c)return;st.weeks.h
 $('qk').innerHTML=[['All',0],['Last 26',26],['Last 12',12],['Last 8',8],['Clear',-1]].map(([l,n])=>'<button type="button" data-n="'+n+'">'+l+'</button>').join('');
 $('qk').onclick=e=>{const b=e.target.closest('button');if(!b)return;const n=+b.dataset.n;st.weeks=new Set(n<0?[]:n===0?wkKeys:wkKeys.slice(-n));syncChips();draw()};
 $('partial').onchange=e=>{st.partial=e.target.checked;draw()};
+$('pw').onchange=e=>{st.pw=e.target.checked;draw()};
 $('excl').onchange=e=>{st.excl=e.target.checked;draw()};
 $('cap').onchange=e=>{st.cap=e.target.checked;draw()};
 function seg(id,items,key,cb){const el=$(id);el.innerHTML='';items.forEach(([v,l])=>{const b=document.createElement('button');b.textContent=l;b.type='button';

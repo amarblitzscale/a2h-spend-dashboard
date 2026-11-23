@@ -4,7 +4,8 @@
 --   win      D0_6 = W0, D7_13 = W1, D14_20 = W2, D21_27 = W3 (days since the seller's first Meta spend day)
 --   outlier  1 = seller whose W0 spend / platform GMV is under 5%
 --   csa      1 = seller whose primary L1 category is clothing-shoes-and-accessories, 0 = everything else (incl. untagged)
--- A seller enters a week only once that week has fully elapsed.
+-- A seller enters a week as soon as its first day has passed; partial = 1 while the week is still running for that seller
+-- (the dashboard shows those only when "Include in-progress weeks" is ticked).
 -- No Metabase variables: save as a plain SQL question, then make its public link.
 WITH params AS (SELECT DATE '2026-08-01' AS start_date),   -- first A2H date shown on the dashboard
 a2h AS (
@@ -29,9 +30,10 @@ live AS (  -- D0 = first day with Meta spend on or after A2H
   SELECT seller_id, MIN(d) AS live_date FROM fbi WHERE breakdown_key IS NULL OR breakdown_key = '' GROUP BY 1
 ),
 wins AS (
-  SELECT l.seller_id, l.live_date, w.win, w.s, w.e
+  SELECT l.seller_id, l.live_date, w.win, w.s, w.e,
+         DATE_ADD(l.live_date, INTERVAL w.e DAY) >= CURRENT_DATE('Asia/Kolkata') AS is_partial   -- week still running for this seller
   FROM live l, UNNEST([STRUCT('D0_6' AS win, 0 AS s, 6 AS e), ('D7_13', 7, 13), ('D14_20', 14, 20), ('D21_27', 21, 27)]) w
-  WHERE DATE_ADD(l.live_date, INTERVAL w.e DAY) < CURRENT_DATE('Asia/Kolkata')
+  WHERE DATE_ADD(l.live_date, INTERVAL w.s DAY) < CURRENT_DATE('Asia/Kolkata')   -- week has started
 ),
 lal_adsets AS (  -- ad set is LAL if any included custom audience is a lookalike
   SELECT DISTINCT ad.adset_id
@@ -89,7 +91,7 @@ cat AS (   -- seller category (one row per seller)
   FROM `blitzscale-prod-project.analytics.seller_level_category_mapping_l2`
 ),
 agg AS (   -- raw sums per A2H date x outlier x week
-  SELECT a.a2h_date, IFNULL(o.outlier, 0) AS outlier, IFNULL(c.csa, 0) AS csa, w.win,
+  SELECT a.a2h_date, IFNULL(o.outlier, 0) AS outlier, IFNULL(c.csa, 0) AS csa, w.win, CAST(w.is_partial AS INT64) AS partial,
     COUNT(DISTINCT w.seller_id) AS sellers,
     SUM(b.spend) AS spend, SUM(b.impressions) AS impressions, SUM(b.clicks) AS clicks, SUM(b.purchases) AS purchases,
     SUM(g.gmv) AS gmv,
@@ -104,15 +106,15 @@ agg AS (   -- raw sums per A2H date x outlier x week
   LEFT JOIN brk b ON b.seller_id = w.seller_id AND b.win = w.win
   LEFT JOIN vid v ON v.seller_id = w.seller_id AND v.win = w.win
   LEFT JOIN gmv g ON g.seller_id = w.seller_id AND g.win = w.win
-  GROUP BY 1, 2, 3, 4
+  GROUP BY 1, 2, 3, 4, 5
 ),
 base AS (
   SELECT a.a2h_date, IFNULL(o.outlier, 0) AS outlier, IFNULL(c.csa, 0) AS csa, COUNT(*) AS a2h_done, COUNT(l.seller_id) AS live_from_a2h
   FROM a2h a LEFT JOIN live l USING (seller_id) LEFT JOIN outl o USING (seller_id) LEFT JOIN cat c USING (seller_id)
   GROUP BY 1, 2, 3
 )
-SELECT b.a2h_date, b.outlier, b.csa, b.a2h_done, b.live_from_a2h, g.win, g.sellers, g.spend, g.impressions, g.clicks, g.purchases, g.gmv,
+SELECT b.a2h_date, b.outlier, b.csa, b.a2h_done, b.live_from_a2h, g.win, g.partial, g.sellers, g.spend, g.impressions, g.clicks, g.purchases, g.gmv,
        g.video_spend, g.ad_spend, g.age_18_44, g.age_spend, g.non_lal_spend, g.adset_spend, g.ig_spend, g.plat_spend,
        CURRENT_TIMESTAMP() AS refreshed_at   -- shown on the dashboard as the data refresh time
 FROM base b LEFT JOIN agg g ON g.a2h_date = b.a2h_date AND g.outlier = b.outlier AND g.csa = b.csa
-ORDER BY 1 DESC, 2, 3, 6
+ORDER BY 1 DESC, 2, 3, 6, 7
