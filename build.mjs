@@ -30,7 +30,7 @@ const HEAD = '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\
 const built = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' }) + ' IST';
 const html = HEAD + readFileSync('template.html', 'utf8')
   .replace('/*DATA*/[]', () => JSON.stringify(out))
-  .replace('__BUILT__', built);
+  .replaceAll('__BUILT__', built);
 mkdirSync('dist', { recursive: true });
 writeFileSync('dist/index.html', html);
 console.log(`Built dist/index.html from ${out.length} rows`);
