@@ -80,6 +80,7 @@ td.pt{outline:1px dashed var(--ink2);outline-offset:-3px}
   <label>Sellers <span class="seg" id="catSeg" role="group"></span></label>
   <label>Group A2H cohorts by <span class="seg" id="gran" role="group"></span></label>
   <label class="chk"><input type="checkbox" id="partial"> Include current A2H week</label>
+  <label class="chk"><input type="checkbox" id="min1k" checked> Finished weeks: only sellers with ₹1k+ spend that week</label>
   <label class="chk"><input type="checkbox" id="pw"> Include partial weeks (sellers part-way through W0-W3)</label>
   <label class="chk"><input type="checkbox" id="excl"> Exclude outlier sellers (W0 S/GMV under 5%)</label>
   <label class="chk"><input type="checkbox" id="cap" checked> Cap S/GMV axis at 150%</label>
@@ -112,7 +113,7 @@ td.pt{outline:1px dashed var(--ink2);outline-offset:-3px}
   <p class="note" id="hmNote"></p>
 </section>
 
-<p class="note">Source: Metabase question "A2H to Live Spend Shares" (card 18534) logic, re-run with raw numerators so cohorts can be pooled by week; spend shares match the original question. Dashboard built __BUILT__. The current A2H week is hidden unless Include current A2H week is ticked. A seller counts in W0-W3 from the first day of that week; weeks still running for a seller are hidden unless Include partial weeks is ticked, and shown with a dashed outline in the grid. Outlier sellers have W0 S/GMV under 5%. Windows: W0 is the seller's first week since first Meta spend, W1 the next, and so on.</p>
+<p class="note">Source: Metabase question "A2H to Live Spend Shares" (card 18534) logic, re-run with raw numerators so cohorts can be pooled by week; spend shares match the original question. Dashboard built __BUILT__. The current A2H week is hidden unless Include current A2H week is ticked. A seller counts in W0-W3 from the first day of that week; weeks still running for a seller are hidden unless Include partial weeks is ticked, and shown with a dashed outline in the grid. With the 1k toggle on, a seller counts in a finished week only if they spent at least ₹1,000 on Meta in that week. Outlier sellers have W0 S/GMV under 5%. Windows: W0 is the seller's first week since first Meta spend, W1 the next, and so on.</p>
 </div>
 <div class="tip" id="tip"></div>
 
@@ -134,7 +135,7 @@ const latest=P(new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata'}).format
 const pct=(x,d=1)=>x==null||!isFinite(x)?'–':x.toFixed(d)+'%';
 const inr=x=>x==null?'–':x>=1e7?(x/1e7).toFixed(2)+' Cr':x>=1e5?(x/1e5).toFixed(2)+' L':Math.round(x).toLocaleString('en-IN');
 const rup=x=>x==null||!isFinite(x)?'–':'₹'+x.toFixed(0);
-const st={pw:false,cat:'all',w:[true,true,true,true],gran:'week',weeks:new Set(),partial:false,excl:false,cap:true,metric:'video'};
+const st={min1k:true,pw:false,cat:'all',w:[true,true,true,true],gran:'week',weeks:new Set(),partial:false,excl:false,cap:true,metric:'video'};
 const CAP=150;
 
 const S=['spend','impr','clicks','purch','gmv','vsp','adsp','a','agesp','nl','adset','ig','plat'];
@@ -163,7 +164,7 @@ function groups(){
   const order=[],G={};
   ds.forEach(d=>{const k=keyOf(d);if(!G[k]){G[k]={k,days:[],done:0,live:0,w:[0,1,2,3].map(()=>{const o={sel:0,psel:0};S.forEach(f=>o[f]=0);return o})};order.push(k)}
     const g=G[k];g.days.push(d);outs().forEach(o=>cats().forEach(c=>{const b=base[d+'|'+o+'|'+c];if(b){g.done+=b.done;g.live+=b.live}}))});
-  RAW.forEach(r=>{if(r[3]<0||(st.excl&&r[18])||!cats().includes(r[19])||!inc(r[0])||(r[20]&&!st.pw))return;const w=G[keyOf(r[0])].w[r[3]];
+  RAW.forEach(r=>{if(r[3]<0||(st.excl&&r[18])||!cats().includes(r[19])||!inc(r[0])||(r[20]&&!st.pw)||(st.min1k&&!r[20]&&!r[21]))return;const w=G[keyOf(r[0])].w[r[3]];
     w.sel+=r[4];if(r[20])w.psel+=r[4];S.forEach((f,i)=>w[f]+=+r[5+i]||0)});
   return order.map(k=>{const g=G[k];g.livePct=g.done?g.live/g.done*100:null;g.short=dl(k);
     if(st.gran==='week'){g.label=wkName(k)+' · week of '+dl(k);g.short=wkName(k);g.partial=wkPartial(k)}
@@ -285,6 +286,7 @@ $('chips').onclick=e=>{const c=e.target.closest('.chip');if(!c)return;st.weeks.h
 $('qk').innerHTML=[['All',0],['Last 26',26],['Last 12',12],['Last 8',8],['Clear',-1]].map(([l,n])=>'<button type="button" data-n="'+n+'">'+l+'</button>').join('');
 $('qk').onclick=e=>{const b=e.target.closest('button');if(!b)return;const n=+b.dataset.n;st.weeks=new Set(n<0?[]:n===0?wkKeys:wkKeys.slice(-n));syncChips();draw()};
 $('partial').onchange=e=>{st.partial=e.target.checked;draw()};
+$('min1k').onchange=e=>{st.min1k=e.target.checked;draw()};
 $('pw').onchange=e=>{st.pw=e.target.checked;draw()};
 $('excl').onchange=e=>{st.excl=e.target.checked;draw()};
 $('cap').onchange=e=>{st.cap=e.target.checked;draw()};
