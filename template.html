@@ -146,11 +146,12 @@ const M={
  ig:{t:'Instagram',c:'Instagram spend ÷ spend with platform breakdown',f:s=>s.ig/s.plat*100,u:pct,ax:v=>v+'%'},
  cpm:{low:1,t:'CPM',c:'Spend per 1,000 impressions',f:s=>s.spend/s.impr*1000,u:rup,ax:v=>'₹'+v},
  ctr:{t:'CTR',c:'Clicks ÷ impressions',f:s=>s.clicks/s.impr*100,u:v=>pct(v,2),ax:v=>v+'%'},
+ cpc:{low:1,t:'CPC',c:'Spend per click; lower is better',f:s=>s.spend/s.clicks,u:v=>v==null||!isFinite(v)?'–':'₹'+v.toFixed(1),ax:v=>'₹'+v},
  c2pr:{t:'C2PR',c:'Purchases ÷ clicks',f:s=>s.purch/s.clicks*100,u:v=>pct(v,2),ax:v=>v+'%'},
  sgmv:{low:1,t:'S/GMV',c:'Spend as % of platform GMV; lower is more efficient',f:s=>s.gmv>0?s.spend/s.gmv*100:null,u:pct,ax:v=>v+'%',cap:true}
 };
-const TITLE={video:'Video share of spend',age:'18-44 share of spend',nl:'Non-LAL share of spend',ig:'Instagram share of spend',cpm:'CPM',ctr:'CTR',c2pr:'C2PR (click to purchase rate)',sgmv:'S/GMV'};
-const SHARE=['video','age','nl','ig'],PERF=['cpm','ctr','c2pr','sgmv'];
+const TITLE={video:'Video share of spend',age:'18-44 share of spend',nl:'Non-LAL share of spend',ig:'Instagram share of spend',cpm:'CPM',ctr:'CTR',cpc:'CPC (cost per click)',c2pr:'C2PR (click to purchase rate)',sgmv:'S/GMV'};
+const SHARE=['video','age','nl','ig'],PERF=['cpm','ctr','cpc','c2pr','sgmv'];
 
 const ok=q=>q.sel;
 const wkName=k=>{const th=P(k);th.setUTCDate(th.getUTCDate()+3);return th.getUTCFullYear()+'W'+String(isoWeek(k)).padStart(2,'0')};
